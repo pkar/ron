@@ -1,36 +1,31 @@
 package ron
 
-import (
-	"flag"
-	"io"
-	"os"
-)
+import "flag"
 
 // Run builds its internal commands and executes a
 // matching command by parsing args and flags.
-func Run(stdOut io.Writer, stdErr io.Writer, args []string) (int, error) {
-	if stdOut == nil {
-		stdOut = os.Stdout
-	}
-	if stdErr == nil {
-		stdErr = os.Stderr
+func Run(c *Commander, args []string) (int, error) {
+	f := flag.NewFlagSet(AppName, flag.ExitOnError)
+	f.Usage = func() { c.Usage(c.Stderr) }
+	var list bool
+	f.BoolVar(&list, "list", false, "List commands")
+	f.Parse(args)
+
+	if list {
+		c.List(c.Stdout)
+		return 0, nil
 	}
 
-	c := NewCommander(stdOut, stdErr)
-
-	flagSet := flag.NewFlagSet(AppName, flag.ExitOnError)
-	flagSet.Usage = func() { c.Usage(stdErr) }
-	flagSet.Parse(args)
-	if flagSet.NArg() < 1 {
-		c.Usage(stdErr)
+	if f.NArg() < 1 {
+		c.Usage(c.Stderr)
 		return 1, nil
 	}
 
-	for _, cmd := range c {
-		if _, ok := cmd.Names()[flagSet.Arg(0)]; ok {
-			return cmd.Run(flagSet.Args()[1:])
+	for _, cmd := range c.Commands {
+		if _, ok := cmd.Aliases()[f.Arg(0)]; ok {
+			return cmd.Run(f.Args()[1:])
 		}
 	}
-	c.Usage(stdErr)
+	c.Usage(c.Stderr)
 	return 1, nil
 }

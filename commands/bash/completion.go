@@ -9,44 +9,60 @@ const (
 	ronComplete = `
 _ron()
 {
-    local cur cmds topts copts tmopts sub_cmd
+    local cur sub_cmd
     COMPREPLY=()
     cur="${COMP_WORDS[COMP_CWORD]}"
     sub_cmd="${COMP_WORDS[1]}"
-    cmds=$(ron help 2>&1 | grep -E '^    ' | cut -d ' ' -f5)
-    targetopts=$(ron t -list_clean)
-    topts="--debug --default --envs --list --verbose --yaml"
-    copts="--loglevel --restart --wait --watch"
-    tmopts="--debug --input --output"
 
     case ${COMP_CWORD} in
         1)
+            local cmds=$(ron -list)
             COMPREPLY=($(compgen -W "${cmds}" -- ${cur}))
             ;;
         *)
             case ${sub_cmd} in
-                t | target)
-                    COMPREPLY=($(compgen -W "${topts} ${targetopts}" -- ${cur}))
-                    ;;
                 cmd)
-                    COMPREPLY=($(compgen -W "${copts}" -- ${cur}))
+                    local command_opts="-loglevel -restart -wait -watch"
+                    COMPREPLY=($(compgen -W "${replace_opts}" -- ${cur}))
+                    ;;
+                replace)
+                    local replace_opts="-debug -input -output"
+                    COMPREPLY=($(compgen -W "${command_opts}" -- ${cur}))
+                    ;;
+                t | target)
+                    local target_opts="-debug -default -envs -list -list_remotes -remotes -verbose -yaml"
+                    local target_list_opts=$(ron t -list_clean)
+                    COMPREPLY=($(compgen -W "${target_opts} ${target_list_opts}" -- ${cur}))
                     ;;
                 template)
-                    COMPREPLY=($(compgen -W "${tmopts}" -- ${cur}))
+                    local template_opts="-debug -input -output"
+                    COMPREPLY=($(compgen -W "${template_opts}" -- ${cur}))
                     ;;
             esac
             ;;
     esac
     return 0
 }
+
 complete -F _ron ron
+# See https://tiswww.case.edu/php/chet/bash/FAQ
+# The current set of completion word break characters is available in bash as
+# the value of the COMP_WORDBREAKS variable. Removing ':' from that value is
+# enough to make the colon not special to completion
+COMP_WORDBREAKS=${COMP_WORDBREAKS//:}
 `
 )
 
 // Command ...
 type Command struct {
+	Name string
 	W    io.Writer
 	WErr io.Writer
+}
+
+// Key returns the commands name for sorting.
+func (c *Command) Key() string {
+	return c.Name
 }
 
 // Run ...
@@ -56,11 +72,10 @@ func (c *Command) Run(args []string) (int, error) {
 	return 0, nil
 }
 
-// Names are the aliases and name for the command. For instance
+// Aliases are the aliases and name for the command. For instance
 // a command can have a long form and short form.
-func (c *Command) Names() map[string]struct{} {
+func (c *Command) Aliases() map[string]struct{} {
 	return map[string]struct{}{
-		"b":               struct{}{},
 		"bash_completion": struct{}{},
 	}
 }

@@ -1,4 +1,4 @@
-package ron
+package upgrade
 
 import (
 	"fmt"
@@ -12,11 +12,12 @@ import (
 	"path/filepath"
 
 	"github.com/upsight/ron/execute"
-	mke "github.com/upsight/ron/make"
+	"github.com/upsight/ron/target"
 )
 
 // Command ...
 type Command struct {
+	Name    string
 	W       io.Writer
 	WErr    io.Writer
 	AppName string
@@ -63,6 +64,11 @@ var loadLatestBinary = func(binUrl, binTmpDir, binPath string) error {
 	return nil
 }
 
+// Key returns the commands name for sorting.
+func (c *Command) Key() string {
+	return c.Name
+}
+
 // findPath calculates the path to the currently running executable.
 func (c *Command) findPath() (string, error) {
 	// get the path to the current version installed
@@ -88,13 +94,21 @@ func (c *Command) Run(args []string) (int, error) {
 		return 1, err
 	}
 	// Create envs
-	envs, err := mke.NewEnv(mke.DefaultEnvConfig, "", mke.ParseOSEnvs(os.Environ()), c.W)
+	envsConfig, _, err := target.BuiltinDefault()
+	if err != nil {
+		return 1, err
+	}
+	envs, err := target.NewEnv(nil, &target.RawConfig{Envs: envsConfig}, target.ParseOSEnvs(os.Environ()), c.W)
 	if err != nil {
 		return 1, err
 	}
 	var latestURL string
 	var ok bool
-	if latestURL, ok = envs.Config["LATEST_URL"]; !ok {
+	e, err := envs.Config()
+	if err != nil {
+		return 1, err
+	}
+	if latestURL, ok = e["LATEST_URL"]; !ok {
 		return 1, fmt.Errorf("LATEST_URL env key not set")
 	}
 
@@ -112,9 +126,9 @@ func (c *Command) Run(args []string) (int, error) {
 	return 0, nil
 }
 
-// Names are the aliases and name for the command. For instance
+// Aliases are the aliases and name for the command. For instance
 // a command can have a long form and short form.
-func (c *Command) Names() map[string]struct{} {
+func (c *Command) Aliases() map[string]struct{} {
 	return map[string]struct{}{
 		"upgrade": struct{}{},
 	}

@@ -1,0 +1,18 @@
+envs:
+  - APP: ron
+  - ARCH: amd64
+  - CURDIR: +pwd
+  - UNAME: +uname | tr '[:upper:]' '[:lower:]'
+  - PACKAGE_VERSION: +git describe --always --dirty --tags | tr '-' '_'
+  - TAG: v1.1.3
+  - LATEST_URL: "https://github.com/upsight/ron/releases/download/$TAG/ron-${UNAME}-$TAG"
+targets:
+  _hello:
+    cmd: |
+      echo Hello
+  burgundy:
+    description: Hello from ron.
+    after:
+      - _hello
+    cmd: |
+      ron burgundy
